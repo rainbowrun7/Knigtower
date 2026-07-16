@@ -1,0 +1,702 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>탑의 기사 (Knight's Tower)</title>
+    <style>
+        :root {
+            --bg-color: #111216;
+            --panel-bg: #1a1c23;
+            --primary-accent: #e74c3c;
+            --gold: #f1c40f;
+            --knight-silver: #bdc3c7;
+            --brick-color: #5d6d7e;
+            --text-light: #eceff1;
+        }
+
+        * {
+            box-sizing: border-box;
+            user-select: none;
+            -webkit-user-select: none;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            background-color: var(--bg-color);
+            color: var(--text-light);
+            font-family: 'Malgun Gothic', 'Apple SD Gothic Neo', sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            overflow: hidden;
+        }
+
+        /* 웹사이트 임베드 및 모바일 세로 레이아웃 최적화 */
+        #game-wrapper {
+            position: relative;
+            width: 100%;
+            max-width: 450px;
+            height: 100vh;
+            max-height: 850px;
+            background: radial-gradient(circle at center, #2c3e50 0%, #0f171e 100%);
+            border: 4px solid #34495e;
+            border-radius: 12px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.7);
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+        }
+
+        /* 캔버스 영역 */
+        #canvas-container {
+            position: relative;
+            flex: 1;
+            width: 100%;
+            background: transparent;
+        }
+
+        canvas {
+            display: block;
+            width: 100%;
+            height: 100%;
+        }
+
+        /* 게임 UI 화면 공통 */
+        .screen {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            background: rgba(15, 23, 30, 0.95);
+            z-index: 10;
+            transition: opacity 0.3s ease;
+            text-align: center;
+            padding: 20px;
+        }
+
+        .screen.hidden {
+            display: none;
+            opacity: 0;
+            pointer-events: none;
+        }
+
+        h1 {
+            font-size: 2.2rem;
+            color: var(--gold);
+            text-shadow: 3px 3px 0px #c0392b, 0 0 15px rgba(241, 196, 15, 0.4);
+            margin-bottom: 20px;
+            letter-spacing: 2px;
+        }
+
+        .subtitle {
+            font-size: 1rem;
+            color: #95a5a6;
+            line-height: 1.6;
+            margin-bottom: 40px;
+        }
+
+        .btn {
+            padding: 14px 35px;
+            font-size: 1.2rem;
+            font-weight: bold;
+            color: #fff;
+            background: linear-gradient(135deg, #e74c3c, #c0392b);
+            border: 3px solid #f1c40f;
+            border-radius: 8px;
+            cursor: pointer;
+            box-shadow: 0 6px 0 #962d22, 0 10px 20px rgba(0,0,0,0.5);
+            transition: all 0.1s ease;
+        }
+
+        .btn:active {
+            transform: translateY(4px);
+            box-shadow: 0 2px 0 #962d22, 0 5px 10px rgba(0,0,0,0.5);
+        }
+
+        /* 게임 결과 텍스트 */
+        .result-box {
+            background: rgba(255, 255, 255, 0.05);
+            border: 2px dashed var(--gold);
+            padding: 20px;
+            border-radius: 10px;
+            margin-bottom: 30px;
+            width: 80%;
+        }
+
+        .result-label {
+            font-size: 0.9rem;
+            color: #bdc3c7;
+            margin-bottom: 5px;
+        }
+
+        .result-value {
+            font-size: 1.8rem;
+            color: #2ecc71;
+            font-weight: bold;
+            text-shadow: 0 0 10px rgba(46, 204, 113, 0.3);
+        }
+
+        /* 인게임 헤더 정보 */
+        #game-header {
+            position: absolute;
+            top: 15px;
+            left: 0;
+            width: 100%;
+            padding: 0 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            z-index: 5;
+            pointer-events: none;
+        }
+
+        .hud-item {
+            font-size: 1.1rem;
+            font-weight: bold;
+            color: #fff;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.8);
+            background: rgba(0,0,0,0.5);
+            padding: 6px 12px;
+            border-radius: 20px;
+            border: 1px solid rgba(255,255,255,0.1);
+        }
+
+        #timer-hud {
+            color: var(--gold);
+        }
+
+        #height-hud {
+            color: #3498db;
+        }
+
+        /* 하단 컨트롤러 영역 */
+        #controller {
+            width: 100%;
+            padding: 15px 20px 25px 20px;
+            background: rgba(26, 28, 35, 0.9);
+            border-top: 3px solid #2c3e50;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            z-index: 5;
+        }
+
+        .ctrl-group {
+            display: flex;
+            gap: 15px;
+        }
+
+        .ctrl-btn {
+            width: 65px;
+            height: 65px;
+            background: linear-gradient(135deg, #34495e, #2c3e50);
+            border: 3px solid #7f8c8d;
+            border-radius: 12px;
+            color: white;
+            font-size: 1.6rem;
+            font-weight: bold;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            cursor: pointer;
+            box-shadow: 0 4px 0 #1a252f;
+            transition: all 0.05s ease;
+            touch-action: manipulation;
+        }
+
+        .ctrl-btn:active {
+            transform: translateY(2px);
+            box-shadow: 0 2px 0 #1a252f;
+            background: linear-gradient(135deg, #e74c3c, #c0392b);
+            border-color: var(--gold);
+        }
+
+        #btn-jump {
+            width: 80px;
+            height: 80px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #27ae60, #2ecc71);
+            border: 3px solid #fff;
+            box-shadow: 0 5px 0 #1e7e43;
+            font-size: 1.2rem;
+        }
+
+        #btn-jump:active {
+            transform: translateY(3px);
+            box-shadow: 0 2px 0 #1e7e43;
+            background: linear-gradient(135deg, #1e7e43, #27ae60);
+        }
+
+        /* 반응형 설정 (모바일 최적화) */
+        @media (max-height: 700px) {
+            #game-wrapper {
+                max-height: 100vh;
+                border-radius: 0;
+                border: none;
+            }
+            .ctrl-btn {
+                width: 55px;
+                height: 55px;
+                font-size: 1.3rem;
+            }
+            #btn-jump {
+                width: 70px;
+                height: 70px;
+                font-size: 1.1rem;
+            }
+        }
+    </style>
+</head>
+<body>
+
+<div id="game-wrapper">
+    <div id="game-header">
+        <div id="height-hud" class="hud-item">0m / 100m</div>
+        <div id="timer-hud" class="hud-item">0.00s</div>
+    </div>
+
+    <div id="start-screen" class="screen">
+        <h1>⚔️ 탑의 기사 ⚔️</h1>
+        <p class="subtitle">좌우 방향키와 점프 버튼을 이용하여<br>끝없이 높은 탑 꼭대기의 깃발을 점령하세요!<br>위로 갈수록 발판이 작아지고 움직입니다.</p>
+        <button class="btn" id="start-btn">탑 오르기 시작</button>
+    </div>
+
+    <div id="end-screen" class="screen hidden">
+        <h1>🎉 정복 완료! 🎉</h1>
+        <p class="subtitle" style="margin-bottom: 20px;">기사가 마침내 탑의 꼭대기에 도달했습니다!</p>
+        <div class="result-box">
+            <div class="result-label">소요 시간</div>
+            <div id="final-time" class="result-value">00.00초</div>
+        </div>
+        <button class="btn" id="restart-btn">다시 도전</button>
+    </div>
+
+    <div id="canvas-container">
+        <canvas id="gameCanvas"></canvas>
+    </div>
+
+    <div id="controller">
+        <div class="ctrl-group">
+            <div class="ctrl-btn" id="btn-left">◀</div>
+            <div class="ctrl-btn" id="btn-right">▶</div>
+        </div>
+        <div class="ctrl-group">
+            <div class="ctrl-btn" id="btn-jump">JUMP</div>
+        </div>
+    </div>
+</div>
+
+<script>
+const canvas = document.getElementById('gameCanvas');
+const ctx = canvas.getContext('2d');
+
+// 해상도 조절 (CSS 크기에 비례하여 매끄러운 픽셀 표현)
+function resizeCanvas() {
+    const container = document.getElementById('canvas-container');
+    canvas.width = container.clientWidth;
+    canvas.height = container.clientHeight;
+}
+resizeCanvas();
+window.addEventListener('resize', resizeCanvas);
+
+// 게임 전역 변수
+let gameState = 'START'; // START, PLAYING, END
+let startTime = 0;
+let elapsedTime = 0;
+let timerInterval = null;
+
+// 중력 및 카메라 설정
+const gravity = 0.45;
+let cameraY = 0;
+let targetCameraY = 0;
+
+// 기사 객체 (플레이어)
+const knight = {
+    x: 0,
+    y: 0,
+    width: 24,
+    height: 36,
+    vx: 0,
+    vy: 0,
+    speed: 4.5,
+    jumpForce: -11.5,
+    grounded: false,
+    facing: 'right', // 'left' or 'right'
+    color: '#bdc3c7'
+};
+
+// 맵 및 목표
+let platforms = [];
+const MAP_HEIGHT = -3000; // 탑의 높이
+let goalFlag = { x: 0, y: 0, width: 30, height: 45 };
+
+// 컨트롤 키 상태
+const controls = { left: false, right: false };
+
+// 이벤트 리스너 연결
+document.getElementById('start-btn').addEventListener('click', startGame);
+document.getElementById('restart-btn').addEventListener('click', restartGame);
+
+// 모바일 터치 조작 바인딩 함수
+function setupTouchEvents() {
+    const bindBtn = (id, direction, isTrue) => {
+        const element = document.getElementById(id);
+        element.addEventListener('touchstart', (e) => {
+            e.preventDefault();
+            controls[direction] = isTrue;
+        });
+        element.addEventListener('touchend', (e) => {
+            e.preventDefault();
+            controls[direction] = !isTrue;
+        });
+        // PC 마우스용 예외처리
+        element.addEventListener('mousedown', () => controls[direction] = isTrue);
+        element.addEventListener('mouseup', () => controls[direction] = !isTrue);
+        element.addEventListener('mouseleave', () => controls[direction] = false);
+    };
+
+    bindBtn('btn-left', 'left', true);
+    bindBtn('btn-right', 'right', true);
+
+    const jumpBtn = document.getElementById('btn-jump');
+    const doJump = (e) => {
+        e.preventDefault();
+        if (knight.grounded) {
+            knight.vy = knight.jumpForce;
+            knight.grounded = false;
+        }
+    };
+    jumpBtn.addEventListener('touchstart', doJump);
+    jumpBtn.addEventListener('mousedown', doJump);
+}
+
+// 키보드 입력 대응 (PC 테스트용)
+window.addEventListener('keydown', (e) => {
+    if (e.key === 'ArrowLeft' || e.key === 'a' || e.key === 'A') controls.left = true;
+    if (e.key === 'ArrowRight' || e.key === 'd' || e.key === 'D') controls.right = true;
+    if ((e.key === ' ' || e.key === 'ArrowUp' || e.key === 'w' || e.key === 'W') && knight.grounded) {
+        knight.vy = knight.jumpForce;
+        knight.grounded = false;
+    }
+});
+window.addEventListener('keyup', (e) => {
+    if (e.key === 'ArrowLeft' || e.key === 'a' || e.key === 'A') controls.left = false;
+    if (e.key === 'ArrowRight' || e.key === 'd' || e.key === 'D') controls.right = false;
+});
+
+// 발판 맵 생성
+function generateMap() {
+    platforms = [];
+    
+    // 1. 첫 시작 바닥 안전장치
+    platforms.push({
+        x: -50,
+        y: canvas.height - 40,
+        width: canvas.width + 100,
+        height: 100,
+        type: 'normal'
+    });
+
+    let currentY = canvas.height - 130;
+    const endY = MAP_HEIGHT;
+
+    while (currentY > endY) {
+        // 탑 위로 올라갈수록 난이도 수치 증가 (0~1)
+        const progress = Math.min(1, Math.abs(currentY) / Math.abs(endY));
+        
+        // 난이도별 가로 사이즈 조정 (위로 갈수록 좁아짐)
+        const minW = Math.max(45, 100 - progress * 55);
+        const maxW = Math.max(70, 130 - progress * 60);
+        const width = Math.random() * (maxW - minW) + minW;
+
+        const x = Math.random() * (canvas.width - width);
+
+        // 발판 타입: 위로 갈수록 움직이는 발판 확률 증가
+        let type = 'normal';
+        let speed = 0;
+        if (progress > 0.2 && Math.random() < progress * 0.75) {
+            type = 'moving';
+            speed = (Math.random() > 0.5 ? 1 : -1) * (1.2 + progress * 2.2);
+        }
+
+        platforms.push({
+            x: x,
+            y: currentY,
+            width: width,
+            height: 15,
+            type: type,
+            speed: speed,
+            initialX: x
+        });
+
+        // 위로 갈수록 발판 사이 세로 간격 증가
+        const minGap = 80 + progress * 20;
+        const maxGap = 105 + progress * 25;
+        currentY -= (Math.random() * (maxGap - minGap) + minGap);
+    }
+
+    // 최상단 클리어 지점 발판 생성
+    const finalPlatform = {
+        x: canvas.width / 2 - 60,
+        y: currentY,
+        width: 120,
+        height: 20,
+        type: 'normal'
+    };
+    platforms.push(finalPlatform);
+
+    // 깃발 위치 지정
+    goalFlag.x = finalPlatform.x + finalPlatform.width / 2 - 5;
+    goalFlag.y = finalPlatform.y - goalFlag.height;
+}
+
+// 게임 시작
+function startGame() {
+    document.getElementById('start-screen').classList.add('hidden');
+    document.getElementById('end-screen').classList.add('hidden');
+    
+    gameState = 'PLAYING';
+    
+    // 캐릭터 리셋
+    knight.x = canvas.width / 2 - knight.width / 2;
+    knight.y = canvas.height - 100;
+    knight.vx = 0;
+    knight.vy = 0;
+    knight.grounded = false;
+    
+    // 카메라 초기화
+    cameraY = knight.y - canvas.height * 0.6;
+    targetCameraY = cameraY;
+
+    // 맵 재생성
+    generateMap();
+
+    // 타이머 가동
+    startTime = Date.now();
+    if (timerInterval) clearInterval(timerInterval);
+    timerInterval = setInterval(() => {
+        elapsedTime = (Date.now() - startTime) / 1000;
+        document.getElementById('timer-hud').innerText = elapsedTime.toFixed(2) + 's';
+        
+        // 현재 올라간 높이율 계산
+        const startY = canvas.height - 100;
+        const totalDist = Math.abs(MAP_HEIGHT - startY);
+        const curDist = Math.max(0, Math.min(totalDist, startY - knight.y));
+        const progressPercent = Math.floor((curDist / totalDist) * 100);
+        document.getElementById('height-hud').innerText = progressPercent + 'm / 100m';
+    }, 50);
+
+    gameLoop();
+}
+
+// 게임 클리어 (종료)
+function endGame() {
+    gameState = 'END';
+    clearInterval(timerInterval);
+    document.getElementById('final-time').innerText = elapsedTime.toFixed(2) + '초';
+    document.getElementById('end-screen').classList.remove('hidden');
+}
+
+// 재도전
+function restartGame() {
+    startGame();
+}
+
+// 메인 루프
+function gameLoop() {
+    if (gameState !== 'PLAYING') return;
+    
+    update();
+    render();
+    
+    requestAnimationFrame(gameLoop);
+}
+
+// 물리 업데이트
+function update() {
+    // 1. 좌우 이동 및 마찰력
+    if (controls.left) {
+        knight.vx = -knight.speed;
+        knight.facing = 'left';
+    } else if (controls.right) {
+        knight.vx = knight.speed;
+        knight.facing = 'right';
+    } else {
+        knight.vx *= 0.8;
+    }
+
+    knight.x += knight.vx;
+
+    // 벽 충돌 제어
+    if (knight.x < 0) knight.x = 0;
+    if (knight.x + knight.width > canvas.width) knight.x = canvas.width - knight.width;
+
+    // 2. 중력 및 속도
+    knight.vy += gravity;
+    knight.y += knight.vy;
+
+    // 3. 발판 감지 & 충돌 (위에서 내려갈 때만 충돌 적용)
+    knight.grounded = false;
+    platforms.forEach(plat => {
+        // 움직이는 발판인 경우 좌표 이동
+        if (plat.type === 'moving') {
+            plat.x += plat.speed;
+            // 벽에 닿으면 방향 반전
+            if (plat.x < 0 || plat.x + plat.width > canvas.width) {
+                plat.speed *= -1;
+            }
+        }
+
+        // 수직 충돌 검사
+        if (knight.vy >= 0 &&
+            knight.x + knight.width > plat.x &&
+            knight.x < plat.x + plat.width &&
+            knight.y + knight.height >= plat.y &&
+            knight.y + knight.height <= plat.y + plat.height + knight.vy) {
+            
+            knight.y = plat.y - knight.height;
+            knight.vy = 0;
+            knight.grounded = true;
+
+            // 서있는 발판이 움직이면 기사도 같이 이동시킴
+            if (plat.type === 'moving') {
+                knight.x += plat.speed;
+            }
+        }
+    });
+
+    // 안전선: 제일 하단 밖으로 떨어지면 리젠 (웹 페이지 임베딩 편의를 위해 즉사 대신 패널티를 줌)
+    const floorY = canvas.height - 40;
+    if (knight.y > floorY + 100) {
+        knight.y = floorY - knight.height;
+        knight.vy = 0;
+        knight.grounded = true;
+    }
+
+    // 4. 카메라 부드러운 트랙킹 (지연 보간법)
+    targetCameraY = knight.y - canvas.height * 0.55;
+    cameraY += (targetCameraY - cameraY) * 0.1;
+
+    // 5. 승리 플래그 도달 조건 검사
+    if (knight.x + knight.width > goalFlag.x &&
+        knight.x < goalFlag.x + goalFlag.width &&
+        knight.y + knight.height > goalFlag.y &&
+        knight.y < goalFlag.y + goalFlag.height) {
+        endGame();
+    }
+}
+
+// 렌더링
+function render() {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+    ctx.save();
+    // 전체 오브젝트를 카메라 시점에 따라 오프셋
+    ctx.translate(0, -cameraY);
+
+    // 중세식 벽돌 문양 배경 (그리드 형태)
+    ctx.fillStyle = 'rgba(44, 62, 80, 0.2)';
+    const tileSize = 50;
+    const startRow = Math.floor(cameraY / tileSize) * tileSize;
+    for (let x = 0; x < canvas.width; x += tileSize) {
+        for (let y = startRow; y < cameraY + canvas.height; y += tileSize) {
+            if ((Math.floor(x / tileSize) + Math.floor(y / tileSize)) % 2 === 0) {
+                ctx.fillRect(x, y, tileSize, tileSize);
+            }
+        }
+    }
+
+    // 성벽 안쪽 세로 기둥 실루엣 표현
+    ctx.fillStyle = 'rgba(0, 0, 0, 0.15)';
+    ctx.fillRect(30, cameraY, 20, canvas.height);
+    ctx.fillRect(canvas.width - 50, cameraY, 20, canvas.height);
+
+    // 발판 그리기
+    platforms.forEach(plat => {
+        // 발판 그라데이션
+        let grad = ctx.createLinearGradient(plat.x, plat.y, plat.x, plat.y + plat.height);
+        if (plat.type === 'moving') {
+            grad.addColorStop(0, '#e67e22'); // 움직이는 것 주황색
+            grad.addColorStop(1, '#d35400');
+        } else {
+            grad.addColorStop(0, '#95a5a6'); // 일반 회색 돌판
+            grad.addColorStop(1, '#7f8c8d');
+        }
+        ctx.fillStyle = grad;
+        ctx.fillRect(plat.x, plat.y, plat.width, plat.height);
+
+        // 상단 하이라이트 (테두리)
+        ctx.strokeStyle = '#2c3e50';
+        ctx.lineWidth = 2;
+        ctx.strokeRect(plat.x, plat.y, plat.width, plat.height);
+        
+        // 돌판 조각 패턴 살짝 추가
+        ctx.fillStyle = 'rgba(255,255,255,0.15)';
+        ctx.fillRect(plat.x + 5, plat.y + 2, plat.width - 10, 3);
+    });
+
+    // 목적지 깃발 그리기
+    // 깃대
+    ctx.lineWidth = 4;
+    ctx.strokeStyle = '#f1c40f';
+    ctx.beginPath();
+    ctx.moveTo(goalFlag.x, goalFlag.y);
+    ctx.lineTo(goalFlag.x, goalFlag.y + goalFlag.height);
+    ctx.stroke();
+
+    // 빨간색 깃발 천
+    ctx.fillStyle = '#e74c3c';
+    ctx.beginPath();
+    ctx.moveTo(goalFlag.x, goalFlag.y);
+    ctx.lineTo(goalFlag.x + goalFlag.width, goalFlag.y + goalFlag.height / 3);
+    ctx.lineTo(goalFlag.x, goalFlag.y + (goalFlag.height / 3) * 2);
+    ctx.closePath();
+    ctx.fill();
+
+    // 기사(플레이어) 그리기
+    ctx.save();
+    ctx.translate(knight.x, knight.y);
+
+    // 기사 갑옷 바디
+    ctx.fillStyle = knight.color;
+    ctx.fillRect(0, 0, knight.width, knight.height);
+
+    // 다리 및 신발 (간단히 표현)
+    ctx.fillStyle = '#7f8c8d';
+    ctx.fillRect(3, knight.height - 4, 6, 4);
+    ctx.fillRect(knight.width - 9, knight.height - 4, 6, 4);
+
+    // 투구 바이저 (보는 방향에 맞춰 눈금 슬릿 렌더링)
+    ctx.fillStyle = '#2c3e50';
+    if (knight.facing === 'right') {
+        ctx.fillRect(10, 6, knight.width - 12, 6);
+    } else {
+        ctx.fillRect(2, 6, knight.width - 12, 6);
+    }
+
+    // 투구 깃털 장식 (빨간 깃털 포인트)
+    ctx.fillStyle = '#e74c3c';
+    ctx.beginPath();
+    ctx.arc(knight.width / 2, -3, 5, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillRect(knight.width / 2 - 1, -3, 2, 5);
+
+    ctx.restore();
+
+    ctx.restore();
+}
+
+// 터치이벤트 초기 구동
+setupTouchEvents();
+</script>
+
+</body>
+</html>
